@@ -1,0 +1,112 @@
+import numpy as np
+
+# ----------------------------------
+# Grey Wolf Optimizer (GWO)
+# ----------------------------------
+
+def gwo(
+    fitness_function,
+    dim,
+    bounds,
+    n_wolves=20,
+    max_iter=100
+):
+    """
+    Grey Wolf Optimization (GWO)
+
+    Parameters
+    ----------
+    fitness_function : callable
+        Objective function to minimize
+    dim : int
+        Number of decision variables
+    bounds : tuple or list
+        (lower, upper) or [(l1, u1), (l2, u2), ...]
+    n_wolves : int
+        Number of wolves
+    max_iter : int
+        Maximum iterations
+
+    Returns
+    -------
+    best_position : ndarray
+    best_fitness : float
+    """
+
+    # Bounds handling
+    if isinstance(bounds[0], (list, tuple)):
+        lb = np.array([b[0] for b in bounds])
+        ub = np.array([b[1] for b in bounds])
+    else:
+        lb, ub = bounds
+        lb = np.full(dim, lb)
+        ub = np.full(dim, ub)
+
+    # Initialize wolves
+    wolves = np.random.uniform(lb, ub, (n_wolves, dim))
+
+    # Best positions
+    alpha = np.zeros(dim)
+    beta = np.zeros(dim)
+    delta = np.zeros(dim)
+
+    # Best fitness scores
+    alpha_score = np.inf
+    beta_score = np.inf
+    delta_score = np.inf
+
+    # Main loop
+    for t in range(max_iter):
+        a = 2 - 2 * t / max_iter  # control parameter
+
+        for i in range(n_wolves):
+            # Keep within bounds
+            wolves[i] = np.clip(wolves[i], lb, ub)
+
+            fitness = fitness_function(wolves[i])
+
+            if fitness < alpha_score:
+                delta_score, beta_score, alpha_score = beta_score, alpha_score, fitness
+                delta, beta, alpha = beta.copy(), alpha.copy(), wolves[i].copy()
+
+            elif fitness < beta_score:
+                delta_score, beta_score = beta_score, fitness
+                delta, beta = beta.copy(), wolves[i].copy()
+
+            elif fitness < delta_score:
+                delta_score = fitness
+                delta = wolves[i].copy()
+
+        # Position update
+        for i in range(n_wolves):
+            for d in range(dim):
+                r1, r2 = np.random.rand(), np.random.rand()
+                A1 = 2 * a * r1 - a
+                C1 = 2 * r2
+                D1 = abs(C1 * alpha[d] - wolves[i, d])
+                X1 = alpha[d] - A1 * D1
+
+                r1, r2 = np.random.rand(), np.random.rand()
+                A2 = 2 * a * r1 - a
+                C2 = 2 * r2
+                D2 = abs(C2 * beta[d] - wolves[i, d])
+                X2 = beta[d] - A2 * D2
+
+                r1, r2 = np.random.rand(), np.random.rand()
+                A3 = 2 * a * r1 - a
+                C3 = 2 * r2
+                D3 = abs(C3 * delta[d] - wolves[i, d])
+                X3 = delta[d] - A3 * D3
+
+                wolves[i, d] = (X1 + X2 + X3) / 3
+
+        # Print the progress every 10 iterations
+        if (t + 1) % 10 == 0:
+            print(f"Iteration {t+1}/{max_iter}, Best Fitness = {alpha_score:.6f}")
+            print(f"Best Position = {alpha}")
+    
+    # Final output after the last iteration
+    print("\nFinal Best Fitness:", alpha_score)
+    print("Final Best Position:", alpha)
+
+    return alpha, alpha_score
